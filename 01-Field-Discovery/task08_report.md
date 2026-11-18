@@ -72,5 +72,15 @@
 
 ## 6. 现场凭证
 
-- [ ] `photos/task08_stairs_self.jpg` —— 楼梯间本人同框（手持手机）
-- [ ] `photos/task08_corridor_self.jpg` —— 走廊行走中本人同框
+四张本人现场同框照，拍摄时间紧邻采集时段（2026-11-18 14:18–14:37），均含本人全身与采集场地：
+
+| 文件 | 内容 |
+|---|---|
+| `photos/task08_walk_corridor.jpg` | 走廊行走中，手持手机（采集慢走/快跑的场地） |
+| `photos/task08_stairs_doorway.jpg` | 楼梯间出口处站立，安全出口标识可定位场地 |
+| `photos/task08_stairs_step1.jpg` | 楼梯台阶上站立，手机屏幕亮起（Phyphox 实验界面） |
+| `photos/task08_stairs_step2.jpg` | 楼梯台阶另一角度 |
+
+![走廊采集场地](../photos/task08_walk_corridor.jpg)
+
+![楼梯间采集场地](../photos/task08_stairs_step1.jpg)
