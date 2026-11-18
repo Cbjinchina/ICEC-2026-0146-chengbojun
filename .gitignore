@@ -1,0 +1,16 @@
+# 只排除系统与临时文件
+
+Thumbs.db
+.DS_Store
+desktop.ini
+*.tmp
+*.swp
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+.idea/
+
+# 注意：raw_data/、process_logs/、photos/ 是核心评分证据，
+# 任何时候都不要加入 .gitignore。
