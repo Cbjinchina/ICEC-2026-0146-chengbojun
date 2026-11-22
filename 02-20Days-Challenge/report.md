@@ -158,7 +158,7 @@
 |---|---|---|
 | 5 工况 × 15 组原始 WAV + 实验照 | `process_logs/raw/`（75 段）+ `raw_src/`（5 条原始 m4a）+ `photos/`（4 张） | 完成 |
 | 时域/频域特征提取代码 | `src/fft_features.py`、`src/classify.py`、`src/ingest_audio.py`、`src/patch_condition.py`、`src/add_noise.py` | 完成 |
-| 盲测准确率视频 | `process_logs/blind_test.mp4` | **待录制** |
+| 盲测准确率视频 | `process_logs/blind_test.mp4` | 完成（26 s，720×1280 竖拍；画面依次为风扇 → 屏幕逐条判决 → 末尾 93.3%） |
 | 抗噪报告 | `noise_robustness.md` | 完成 |
 | 过程留痕（跨多日、多次 commit） | `iterations/`、`process_logs/recording_protocol.md` 的三次现场修订 | 完成 |
 
