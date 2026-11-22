@@ -8,7 +8,7 @@
 |---|---|---|---|
 | ① 5 种工况 × 15 组原始 WAV/CSV 序列及实验照 | 20 | `process_logs/raw/` + `process_logs/raw_src/` + `process_logs/photos/` | 75 段已切片，实验照 4 张 |
 | ② 时域 / 频域特征提取代码 | 20 | `src/fft_features.py` + `src/classify.py` | 已完成（纯标准库，无第三方依赖） |
-| ③ 盲测准确率视频与抗噪报告 | 20 | `process_logs/blind_test.mp4` + `noise_robustness.md` | 待录制 |
+| ③ 盲测准确率视频与抗噪报告 | 20 | `process_logs/blind_test.mp4` + `noise_robustness.md` | 抗噪报告已完成（5 档 SNR）；盲测视频待录制 |
 
 ## 5 种工况定义（实际采集版）
 
