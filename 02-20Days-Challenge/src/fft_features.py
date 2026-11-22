@@ -28,10 +28,20 @@ LOW_HZ = 500.0
 HIGH_HZ = 2000.0
 NAME_RE = re.compile(r"cond(\d+)[_-]run(\d+)", re.IGNORECASE)
 
+# 八度频带（Hz），用于计算增益无关的频带能量占比
+BANDS = [
+    ("b_63_125", 63.0, 125.0), ("b_125_250", 125.0, 250.0),
+    ("b_250_500", 250.0, 500.0), ("b_500_1k", 500.0, 1000.0),
+    ("b_1k_2k", 1000.0, 2000.0), ("b_2k_4k", 2000.0, 4000.0),
+    ("b_4k_8k", 4000.0, 8000.0),
+]
+
 CSV_HEADER = [
     "file", "condition", "run", "sample_rate", "frames",
     "dominant_hz", "centroid_hz", "rms", "zcr", "low_ratio", "high_ratio",
-]
+    "flatness", "tonality", "crest",
+    "mod_peak_hz", "mod_depth", "mod_at_rot",
+] + [b[0] for b in BANDS]
 
 
 def read_wav_mono(path):
@@ -108,8 +118,12 @@ def frame_features(frame, sr):
     mags[0] = 0.0                                 # 丢掉 DC
     total = sum(mags)
     if total <= 0:
-        return dict(rms=rms, zcr=zcr, dominant_hz=0.0, centroid_hz=0.0,
-                    low_ratio=0.0, high_ratio=0.0)
+        d = dict(rms=rms, zcr=zcr, dominant_hz=0.0, centroid_hz=0.0,
+                 low_ratio=0.0, high_ratio=0.0, flatness=0.0, tonality=0.0,
+                 crest=(max(abs(v) for v in x) / (rms * 32768.0)) if rms > 0 else 0.0)
+        for name, _, _ in BANDS:
+            d[name] = 0.0
+        return d
 
     bin_hz = sr / n
     peak = max(range(1, len(mags)), key=lambda i: mags[i])
@@ -117,14 +131,90 @@ def frame_features(frame, sr):
     low = sum(mags[i] for i in range(1, len(mags)) if i * bin_hz < LOW_HZ)
     high = sum(mags[i] for i in range(1, len(mags)) if i * bin_hz > HIGH_HZ)
 
-    return dict(
+    # 谱平坦度：几何均值/算术均值（接近 1 = 噪声状，接近 0 = 音调状）
+    eps = 1e-12
+    pos = [m for m in mags[1:] if m > 0]
+    if pos:
+        log_sum = sum(math.log(m + eps) for m in pos)
+        flat = math.exp(log_sum / len(pos)) / (sum(pos) / len(pos) + eps)
+    else:
+        flat = 0.0
+    # 谱峰显著性：主峰 / 全谱中位数
+    med = sorted(mags[1:])[len(mags[1:]) // 2] if len(mags) > 2 else 1.0
+    tonality = mags[peak] / (med + eps)
+
+    out = dict(
         rms=rms,
         zcr=zcr,
         dominant_hz=peak * bin_hz,
         centroid_hz=centroid,
         low_ratio=low / total,
         high_ratio=high / total,
+        flatness=flat,
+        tonality=tonality,
+        crest=(max(abs(v) for v in x) / (rms * 32768.0)) if rms > 0 else 0.0,
     )
+    # 各八度频带能量占比（增益无关：不同录音的 AGC 差异被约掉）
+    for name, lo, hi in BANDS:
+        e = sum(mags[i] for i in range(1, len(mags)) if lo <= i * bin_hz < hi)
+        out[name] = e / total
+    return out
+
+
+def modulation_features(samples, sr, base_hz):
+    """包络调制分析 —— 转子失衡会让振动幅值按转频周期起伏。
+
+    返回 (调制主频 Hz, 调制深度, 在转频处的相对调制强度)。
+    base_hz 为谱主峰频率；三叶风扇转频 ≈ base_hz / 3。
+    """
+    n = len(samples)
+    if n < sr // 10:                       # 至少 0.1 s 才有意义
+        return 0.0, 0.0, 0.0
+    win = max(int(sr / 200.0), 2)          # 约 200 Hz 低通的滑动平均
+    env = []
+    acc = 0.0
+    for i, x in enumerate(samples):
+        acc += abs(x)
+        if (i + 1) % win == 0:
+            env.append(acc / win)
+            acc = 0.0
+    if len(env) < 64:
+        return 0.0, 0.0, 0.0
+    mean_env = sum(env) / len(env)
+    if mean_env <= 0:
+        return 0.0, 0.0, 0.0
+    x = [v - mean_env for v in env]
+
+    size = 1
+    while size < len(x):
+        size *= 2
+    x = x + [0.0] * (size - len(x))
+    w = [0.5 - 0.5 * math.cos(2.0 * math.pi * i / (size - 1)) for i in range(size)]
+    re = [x[i] * w[i] for i in range(size)]
+    im = [0.0] * size
+    fft_inplace(re, im)
+    mags = [math.hypot(re[i], im[i]) for i in range(size // 2)]
+    env_sr = sr / float(win)
+    bin_hz = env_sr / size
+    lo = max(int(3.0 / bin_hz), 1)
+    hi = min(int(80.0 / bin_hz) + 1, len(mags) - 1)
+    if hi <= lo:
+        return 0.0, 0.0, 0.0
+    band = mags[lo:hi]
+    pk = max(range(len(band)), key=lambda i: band[i]) + lo
+    mod_peak = pk * bin_hz
+    depth = math.sqrt(sum(v * v for v in band) * 2.0) / (size * mean_env)
+
+    rot = base_hz / 3.0                     # 三叶 → 转频
+    rel = 0.0
+    if rot > 1.0:
+        k = int(round(rot / bin_hz))
+        lo2, hi2 = max(k - 1, lo), min(k + 2, hi)
+        if hi2 > lo2:
+            peak_mag = max(mags[lo2:hi2])
+            med = sorted(band)[len(band) // 2]
+            rel = peak_mag / (med + 1e-12)
+    return mod_peak, depth, rel
 
 
 def extract(path):
@@ -144,6 +234,16 @@ def extract(path):
               for i in range(0, len(block) - FRAME_SIZE + 1, FRAME_SIZE)]
     feats = [frame_features(f, sr) for f in frames]
     merged = {k: sum(f[k] for f in feats) / len(feats) for k in feats[0]}
+    # 调制分析用中间 10 s（整段太长、block 又偏短）
+    if len(samples) > sr * 10:
+        c = len(samples) // 2
+        mod_src = samples[c - sr * 5: c + sr * 5]
+    else:
+        mod_src = samples
+    mp, md, mr = modulation_features(mod_src, sr, merged["dominant_hz"])
+    merged["mod_peak_hz"] = mp
+    merged["mod_depth"] = md
+    merged["mod_at_rot"] = mr
     merged["sample_rate"] = sr
     merged["frames"] = len(frames)
     return merged
@@ -185,6 +285,13 @@ def main():
             "zcr": round(f["zcr"], 5),
             "low_ratio": round(f["low_ratio"], 5),
             "high_ratio": round(f["high_ratio"], 5),
+            "flatness": round(f["flatness"], 5),
+            "tonality": round(f["tonality"], 3),
+            "crest": round(f["crest"], 3),
+            "mod_peak_hz": round(f["mod_peak_hz"], 2),
+            "mod_depth": round(f["mod_depth"], 5),
+            "mod_at_rot": round(f["mod_at_rot"], 3),
+            **{name: round(f[name], 5) for name, _, _ in BANDS},
         })
 
     if not rows:

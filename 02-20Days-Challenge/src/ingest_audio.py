@@ -25,12 +25,14 @@ import tempfile
 import wave
 
 EDGE_TRIM = 1.0     # 首尾各裁掉 1 s，避开按键瞬态
+# 工况序号 = 录音时间顺序。c03 改用 2 档后为保证单变量对照，补录了 2 档正常基线，
+# 故由 5 类变为 6 类（三个档位的正常基线 + 三种故障）。
 COND_NAMES = {
-    1: "低档正常",
-    2: "高档正常",
+    1: "正常-1档",
+    2: "正常-4档",
     3: "扇叶失衡",
-    4: "进气受阻",
-    5: "叠加背景噪声",
+    4: "正常-2档",
+    5: "进气受阻",
 }
 AUDIO_EXT = (".m4a", ".mp3", ".wav", ".aac", ".amr", ".ogg", ".flac", ".opus")
 
@@ -136,7 +138,7 @@ def main():
         sys.exit("目录里没有音频文件：%s" % src_dir)
 
     expect = args.files_per_cond * len(COND_NAMES)
-    print("发现 %d 个录音（预期 %d 个 ＝ 5 工况 × %d）" % (len(files), expect, args.files_per_cond))
+    print("发现 %d 个录音（预期 %d 个 ＝ %d 工况 × %d）" % (len(files), expect, len(COND_NAMES), args.files_per_cond))
     if len(files) != expect:
         print("⚠ 数量与预期不符！工况归属可能错位，请核对。")
 
@@ -150,7 +152,7 @@ def main():
         for idx, src in enumerate(files):
             cond = idx // args.files_per_cond + 1
             if cond > len(COND_NAMES):
-                print("跳过（超出 5 工况）：%s" % os.path.basename(src))
+                print("跳过（超出 %d 工况）：%s" % (len(COND_NAMES), os.path.basename(src)))
                 continue
             run_base = (idx % args.files_per_cond) * args.chunks
 

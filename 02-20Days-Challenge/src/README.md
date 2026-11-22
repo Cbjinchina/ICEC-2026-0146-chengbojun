@@ -6,6 +6,9 @@
 |---|---|---|
 | `fft_features.py` | 读 `process_logs/raw/*.wav` → 分帧 Hanning 窗 → 自实现 radix-2 FFT → 输出 `features.csv`（主频、谱质心、RMS、过零率、低/高频能量比） | 已就绪 |
 | `classify.py` | 每工况按 run 编号分层留出最后 3 组作盲测 → 训练集标准化 + 类中心最近邻 → 输出混淆矩阵与准确率报告 | 已就绪 |
+| `ingest_audio.py` | 手机录音（M4A/MP3）→ 转码 16-bit WAV → 首尾各裁 1 s → 均分 15 段，同时输出 `manifest.csv`（时长/RMS/峰值/削波） | 已就绪 |
+| `patch_condition.py` | **只替换某一个工况**的切片（重录后不用整体重跑），旧片段自动 `.bak` 备份 | 已就绪 |
+| `add_noise.py` | 按目标 SNR 离线合成高斯白噪声（固定随机种子，可复现），替代现场录噪声 | 已就绪 |
 | `plot_waveforms.py` | 课题 08 三轴波形图（与阶段一复用） | 可选，待编写 |
 
 ## 复现命令
