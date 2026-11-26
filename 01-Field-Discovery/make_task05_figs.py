@@ -3,7 +3,8 @@
 """
 课题 05：生成实测尺寸图与改造示意（纯标准库，输出 SVG）
 用法：python make_task05_figs.py
-输出：task05_fig_ladder.svg / task05_fig_rack.svg
+输出：task05_fig_ladder.svg（设施 B 直梯）/ task05_fig_rack.svg（设施 C 晾衣杆）
+      / task05_fig_door.svg（设施 A 宿舍门）
 """
 
 import math
@@ -244,7 +245,8 @@ def fig_rack(path):
             out.append(text(br + 20, 206, "衣物侧缘与窗框接触", 11.5, RED, "start", "700"))
             out.append(text(br + 20, 226, "实测间隙 ≈ 0", 12.5, RED, "start", "700"))
         else:
-            out.append(dim_h(br + 4, win_x, 352, "净空 10", GREEN, True))
+            out.append(dim_h(br + 4, win_x, 352, "", GREEN, True))
+            out.append(text(win_x - 12, 374, "净空 10", 11.5, GREEN, "end", "700"))
             out.append(text(win_x + 20, 292, "衣物不再贴窗", 11.5, GREEN, "start", "700"))
         out.append(text(ox, 500, note, 11.5, SUB))
         return "".join(out)
@@ -258,8 +260,82 @@ def fig_rack(path):
     open(path, "w", encoding="utf-8").write("\n".join(o))
 
 
+# ---------------------------------------------------------------- 图 3 宿舍门
+def fig_door(path):
+    W, H = 1040, 620
+    S = 2.2
+    open_w = 80 * S                 # 176 px = 80 cm 门洞净宽（实测）
+    wall_t = 24 * S                 # 53 px = 墙体厚度（示意）
+    cy = 190                        # 墙的走廊侧表面
+    wy = cy + wall_t                # 墙的室内侧表面
+
+    o = ['<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" '
+         'font-family="%s">' % (W, H, W, H, FONT),
+         '<rect width="100%" height="100%" fill="#ffffff"/>',
+         text(24, 34, "图 3　宿舍门 · 通行断面实测与改造（平面）", 19, INK, "start", "700"),
+         text(24, 56, "单位 cm　｜　俯视平面示意　｜　图中仅「门洞净宽 80」为本次实测，"
+                      "箱体位置与墙厚为示意，突出深度未实测，故不对通行净宽作定量结论", 11.5, SUB)]
+
+    def panel(px, title, sub, remodel):
+        q = [text(px, 92, title, 14.5, INK, "start", "700"),
+             text(px, 112, sub, 11, SUB)]
+        d0 = px + 154
+        d1 = d0 + open_w
+        right = px + 464
+
+        # 走廊带 / 室内区
+        q.append(rect(px, cy - 74, 464, 74, "#f8f9fa", GRID, 1))
+        q.append(text(px + 232, cy - 40, "走 廊（门外侧）", 11.5, "#adb5bd", "middle", "600"))
+        q.append(text(px + 300, wy + 196, "室内", 11.5, "#adb5bd", "middle", "600"))
+
+        # 墙体 + 门洞
+        q.append(rect(px, cy, 154, wall_t, WALL, LINE, 1.8))
+        q.append(rect(d1, cy, right - d1, wall_t, WALL, LINE, 1.8))
+        q.append(line(d0, cy, d0, wy, LINE, 2.4))
+        q.append(line(d1, cy, d1, wy, LINE, 2.4))
+
+        # 门扇（单侧开启，向室内开 90°）与开启弧
+        q.append(rect(d0 - 5, wy - 3, 5, open_w, "#dee2e6", LINE, 1.4))
+        pts = []
+        for i in range(41):
+            a = math.pi / 2 * i / 40
+            pts.append("%.1f,%.1f" % (d0 + open_w * math.cos(a), wy + open_w * math.sin(a)))
+        q.append('<polyline points="%s" fill="none" stroke="#adb5bd" stroke-width="1.1" '
+                 'stroke-dasharray="5 4"/>' % " ".join(pts))
+
+        # 箱体
+        if remodel:
+            q.append(rect(d1 + 22, cy + 4, 72, wall_t - 8, "#e9ecef", GREEN, 1.5))
+            q.append(text(d1 + 58, cy - 40, "嵌入式箱体", 11.5, GREEN, "middle", "700"))
+            q.append(text(d1 + 58, cy - 24, "与墙面齐平，不占断面", 10, GREEN, "middle"))
+            q.append(rect(d0, wy, open_w, 99, "#ffe8e8", RED, 1.2, None, 2))
+            q.append(text(d0 + open_w / 2, wy + 56, "地面 45 cm 警示标识带", 11, RED, "middle", "700"))
+        else:
+            q.append(rect(d1 + 22, cy - 46, 72, 46, "#f1f3f5", RED, 1.5, "4 3"))
+            q.append(text(d1 + 58, cy - 40, "凸出式消防器材箱", 11.5, RED, "middle", "700"))
+            q.append(text(d1 + 58, cy - 24, "突出深度未实测", 10.5, RED, "middle"))
+
+        q.append(dim_h(d0, d1, 470, "门洞净宽 80" if not remodel else "净通行断面 80"))
+        q.append(text(px, 516, "门扇开启 + 箱体凸出共用同一断面，" if not remodel
+                      else "箱体不再向走廊凸出；", 11.5, "#495057")
+                 + text(px, 536, "搬运大件时需侧身通过。" if not remodel
+                        else "警示带提示门扇开启范围，避免站人。", 11.5, "#495057"))
+        return "".join(q)
+
+    o.append(panel(36, "现状：门洞 80 cm，箱体向走廊凸出", "单侧开启，门扇占用室内通道", False))
+    o.append(line(512, 80, 512, 520, GRID, 1, "5 5"))
+    o.append(panel(548, "改造后：箱体嵌入，断面恢复", "地面加警示带，预算 60~90 元", True))
+    o.append(text(24, 566, "改造清单：凸出式消防箱改为嵌入式或薄型壁挂（厚度 ≤12 cm）"
+                           "　+　门侧地面 45 cm 警示标识带", 11.5, SUB))
+    o.append(text(24, 588, "说明：门洞净宽 80 cm 本身不违规，缺陷在于与箱体、门扇叠加后的通行余量；"
+                           "因此本条判定为「临界型」，不对门洞宽度提整改要求。", 11.5, SUB))
+    o.append("</svg>")
+    open(path, "w", encoding="utf-8").write("\n".join(o))
+
+
 if __name__ == "__main__":
     d = os.path.dirname(os.path.abspath(__file__))
     fig_ladder(os.path.join(d, "task05_fig_ladder.svg"))
     fig_rack(os.path.join(d, "task05_fig_rack.svg"))
-    print("已生成 task05_fig_ladder.svg / task05_fig_rack.svg")
+    fig_door(os.path.join(d, "task05_fig_door.svg"))
+    print("已生成 task05_fig_ladder.svg / task05_fig_rack.svg / task05_fig_door.svg")
